@@ -1,0 +1,116 @@
+{
+  "general": [
+    {
+      "term": "绝对",
+      "category": "general",
+      "severity": "medium",
+      "alternatives": ["比较", "相对", "更容易"],
+      "note": "避免绝对化承诺。"
+    },
+    {
+      "term": "第一",
+      "category": "general",
+      "severity": "medium",
+      "alternatives": ["领先", "表现突出", "较受欢迎"],
+      "note": "排名类表达需要充分证明。"
+    },
+    {
+      "term": "保证",
+      "category": "general",
+      "severity": "high",
+      "alternatives": ["帮助提升", "有机会改善", "尽量支持"],
+      "note": "避免确定性效果承诺。"
+    }
+  ],
+  "sensitive": [
+    {
+      "term": "最有效",
+      "category": "sensitive",
+      "severity": "high",
+      "alternatives": ["较有效", "适合部分场景", "反馈较好"],
+      "note": "极限功效表达风险较高。"
+    },
+    {
+      "term": "永久",
+      "category": "sensitive",
+      "severity": "high",
+      "alternatives": ["长期", "持续一段时间", "稳定"],
+      "note": "避免不可验证的长期承诺。"
+    },
+    {
+      "term": "根治",
+      "category": "sensitive",
+      "severity": "high",
+      "alternatives": ["改善", "缓解", "辅助调理"],
+      "note": "医疗效果承诺风险高。"
+    }
+  ],
+  "xiaohongshu": [
+    {
+      "term": "全网最低",
+      "category": "xiaohongshu",
+      "severity": "high",
+      "alternatives": ["近期好价", "性价比不错", "价格友好"],
+      "note": "价格绝对化表达容易触发平台审核。",
+      "platforms": ["xiaohongshu"]
+    },
+    {
+      "term": "闭眼入",
+      "category": "xiaohongshu",
+      "severity": "low",
+      "alternatives": ["可以重点看看", "适合按需选择"],
+      "note": "种草语气过强时建议弱化。",
+      "platforms": ["xiaohongshu"]
+    }
+  ],
+  "wechat": [
+    {
+      "term": "点击领取",
+      "category": "wechat",
+      "severity": "medium",
+      "alternatives": ["查看详情", "了解活动", "获取信息"],
+      "note": "公众号诱导点击表达需要谨慎。",
+      "platforms": ["wechat"]
+    },
+    {
+      "term": "转发有礼",
+      "category": "wechat",
+      "severity": "high",
+      "alternatives": ["参与活动", "查看福利说明"],
+      "note": "可能涉及诱导分享。",
+      "platforms": ["wechat"]
+    }
+  ],
+  "ad": [
+    {
+      "term": "国家级",
+      "category": "ad",
+      "severity": "high",
+      "alternatives": ["专业", "规范", "高标准"],
+      "note": "广告法相关风险表达。"
+    },
+    {
+      "term": "顶级",
+      "category": "ad",
+      "severity": "medium",
+      "alternatives": ["高品质", "优质", "表现优秀"],
+      "note": "极限词建议替换。"
+    }
+  ],
+  "medical": [
+    {
+      "term": "疗效",
+      "category": "medical",
+      "severity": "high",
+      "alternatives": ["体验反馈", "改善感受", "使用感"],
+      "note": "医疗功效表达需要资质和证据。"
+    },
+    {
+      "term": "无副作用",
+      "category": "medical",
+      "severity": "high",
+      "alternatives": ["温和", "使用前建议确认适用性"],
+      "note": "健康安全绝对承诺风险高。"
+    }
+  ]
+}
