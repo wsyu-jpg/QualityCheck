@@ -62,6 +62,7 @@ export function QualityWorkbench() {
   const [error, setError] = useState("");
   const [draftSavedAt, setDraftSavedAt] = useState("");
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+  const [isTraditionalNoticeOpen, setIsTraditionalNoticeOpen] = useState(false);
   const languagePickerRef = useRef<HTMLDivElement>(null);
 
   const selectedText = text.trim();
@@ -297,6 +298,11 @@ export function QualityWorkbench() {
                       disabled={isBusy}
                       onClick={() => {
                         if (isBusy) return;
+                        if (option.value === "traditional") {
+                          setIsLanguageOpen(false);
+                          setIsTraditionalNoticeOpen(true);
+                          return;
+                        }
                         setLanguagePreference(option.value);
                         setIsLanguageOpen(false);
                       }}
@@ -455,6 +461,30 @@ export function QualityWorkbench() {
       ) : null}
 
       {error ? <p className="error-banner">{error}</p> : null}
+
+      {isTraditionalNoticeOpen ? (
+        <div
+          aria-labelledby="traditional-notice-title"
+          aria-modal="true"
+          className="modal-backdrop"
+          role="dialog"
+        >
+          <div className="modal-card">
+            <div>
+              <p className="eyebrow">输出语言</p>
+              <h2 id="traditional-notice-title">繁体优化暂未支持</h2>
+            </div>
+            <p>当前版本仅支持简体优化稿，繁体优化能力将在后续版本开放。</p>
+            <button
+              className="primary"
+              onClick={() => setIsTraditionalNoticeOpen(false)}
+              type="button"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
