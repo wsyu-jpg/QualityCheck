@@ -5,7 +5,23 @@
 - 顶部品牌区、平台切换、词库选择、左右双栏工作台、自定义输出语言下拉、批注卡和优化稿区域均属于第一版范围。
 - 检测优先调用 `AI_AGENT_CHECK`，由 AI 直接返回风险批注与 `matchKeywords`；服务端按 `matchKeywords` 回查原文生成高亮 offset，AI 检测失败时回落本地词库。
 - 一键改写必须调用 `AI_AGENT_REWRITE`；未配置时只展示错误，不生成本地替换稿。
+- 当前仅开放简体优化稿；繁体入口只显示“繁体优化暂未支持”弹窗。
+- Windows 生产部署已验证运行在 `http://10.4.18.23:85/`，部署包使用 Next.js standalone。
 - 本规格、`AGENTS.md` 与代码必须同步维护，后续调整 UI、AI 契约、词库或打包方式都需要更新文档。
+
+## 项目结构
+- `app/api/quality/check/route.ts`：质检接口，优先 AI 检测，失败回落本地词库。
+- `app/api/quality/rewrite/route.ts`：一键改写接口，必须调用改写 AI。
+- `components/quality-workbench.tsx`：主工作台 UI、loading 锁定、语言弹窗、结果展示。
+- `lib/quality/ai.ts`：FastGPT / OpenAI-compatible 调用、AI 返回格式兼容、offset 修正。
+- `lib/quality/lexicon.ts`：本地词库检测、summary 计算、fallback 批注。
+- `lib/quality/validators.ts`：请求体、AI 检测、AI 改写 JSON 契约校验。
+- `lib/quality/types.ts`：平台、风险、命中、批注、改写等类型定义。
+- `data/lexicons.json`：本地 fallback 词库。
+- `tests/`：AI、词库和 validator 单元测试。
+- `deploy/windows/`：Windows 发布说明、启动脚本和环境变量示例。
+- `specs/ai-quality-check.md`：产品与接口规格。
+- `AGENTS.md`：项目协作规范。
 
 ## 产品流程
 - 用户选择平台：小红书或公众号。
@@ -18,7 +34,7 @@
 - 右侧展示原文，高亮违禁词，并显示类似文档批注的建议卡片。
 - 用户点击“一键改写”后，才会在下方出现优化稿；服务端必须调用 `AI_AGENT_REWRITE` 输出改写结果，默认目标语言为简体。
 - 未配置 `AI_AGENT_REWRITE` 时，一键改写返回可读错误，不使用代码替换模拟改写。
-- 繁体入口保留，后续通过 `AI_AGENT_TRADITIONAL` 支持繁体识别、转换和繁体输出。
+- 繁体入口保留，当前点击后弹出“繁体优化暂未支持”，后续通过 `AI_AGENT_TRADITIONAL` 支持繁体识别、转换和繁体输出。
 
 ## 产品设计规范
 - 首屏为质检工作台，不做营销页。
@@ -140,7 +156,7 @@
 - fallback 链路中，`summary.totalChars`、`summary.violationCount`、`summary.sensitiveCount`、`summary.riskLevel` 由服务端本地词库检测计算。
 - fallback 链路中，`matches` 由服务端本地词库检测生成，包含高亮所需 offset。
 - fallback 链路中，`annotations` 来自 `AI_AGENT_REVIEW`；未配置 AI 时使用本地 fallback。
-- 前端底部“全文 / 违禁词 / 敏感词”只读取 `summary`，不是直接读取 AI 批注结果。
+- 前端“全文 / 违禁词 / 敏感词”统计栏只读取 `summary`，不是直接读取 AI 批注结果；该统计栏展示在检测结果标题和“一键改写”按钮下方。
 
 FastGPT 检测接口：`AI_AGENT_CHECK`
 
@@ -393,7 +409,8 @@ AI 必须只返回：
 - 输出语言控件不得退回原生 `select`。
 
 ## 运行环境说明
-- 当前实现使用 Next.js 14 最新补丁版，以兼容本机 Node 18.18.2。
+- 当前实现使用 Next.js 14 最新补丁版，项目 Node 版本要求为 `>=18.18.0 <20.9.0`。
+- Windows 服务器建议使用 Node.js 18 LTS；不建议使用 Node 24，可能导致 PM2 或 Next.js standalone 兼容问题。
 - `npm audit` 建议升级到 Next.js 16 修复生产依赖告警；该版本要求 Node >=20.9.0。
 - 当部署环境升级到 Node >=20.9.0 后，应同步升级 Next.js、重新运行测试与构建，并更新本规格。
 
@@ -416,8 +433,12 @@ npm run build
   - `public`
   - `AGENTS.md`
   - `specs/ai-quality-check.md`
+  - `deploy/windows/README.md`
+  - `deploy/windows/start-windows.cmd`
+  - `deploy/windows/.env.cmd.example`
   - `package.json`
   - `package-lock.json`
+- 本地 `release/` 目录仅用于临时放置 zip、tar.gz 或打包目录，必须保持 git 忽略。
 - 部署包启动方式：
 ```bash
 node server.js
@@ -445,3 +466,5 @@ AI_AGENT_TRADITIONAL_MODEL=
   - 改写 workflow 最好返回标准 `RewriteResponse` JSON；也兼容 `{ "ok": true, "rewrittenText": "...", "changeSummary": "文本摘要", "remainingRisk": "无" }`。
   - 纯文本或 `{ "content": "优化稿" }` 返回可用于测试，但剩余风险会被系统保守标记为 `medium`。
   - 如果部署平台不是 Vercel，需要确认 Node 版本满足 `package.json` 的 `engines`。
+  - Windows standalone 若未关闭图片优化会报缺少 `sharp`；当前已在 `next.config.mjs` 配置 `images.unoptimized: true`。
+  - PM2 启动前需要先 `call .env.cmd`，更新环境变量后使用 `pm2 restart qualitycheck-ai --update-env`。
