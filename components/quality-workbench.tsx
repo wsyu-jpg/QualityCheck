@@ -66,6 +66,7 @@ export function QualityWorkbench() {
 
   const selectedText = text.trim();
   const canCheck = selectedText.length > 0 && selectedText.length <= 1500;
+  const isBusy = isChecking || isRewriting;
   const activeAnnotations = checkResult?.annotations ?? [];
   const selectedLanguageOption = LANGUAGE_OPTIONS.find(
     (option) => option.value === languagePreference
@@ -101,11 +102,12 @@ export function QualityWorkbench() {
   }, []);
 
   async function handleCheck() {
-    if (!canCheck) return;
+    if (!canCheck || isBusy) return;
 
     setIsChecking(true);
     setError("");
     setRewriteResult(null);
+    setIsLanguageOpen(false);
 
     try {
       const response = await fetch("/api/quality/check", {
@@ -133,10 +135,11 @@ export function QualityWorkbench() {
   }
 
   async function handleRewrite() {
-    if (!checkResult) return;
+    if (!checkResult || isBusy) return;
 
     setIsRewriting(true);
     setError("");
+    setIsLanguageOpen(false);
 
     try {
       const response = await fetch("/api/quality/rewrite", {
@@ -166,6 +169,7 @@ export function QualityWorkbench() {
   }
 
   function toggleLexicon(id: string) {
+    if (isBusy) return;
     setEnabledLexicons((current) =>
       current.includes(id)
         ? current.filter((item) => item !== id)
@@ -174,6 +178,7 @@ export function QualityWorkbench() {
   }
 
   function saveDraft() {
+    if (isBusy) return;
     window.localStorage.setItem(
       "quality-check-draft",
       JSON.stringify({ platform, text, enabledLexicons, languagePreference })
@@ -207,8 +212,10 @@ export function QualityWorkbench() {
           {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
             <button
               className={platform === value ? "tab active" : "tab"}
+              disabled={isBusy}
               key={value}
               onClick={() => {
+                if (isBusy) return;
                 const nextPlatform = value as Platform;
                 setPlatform(nextPlatform);
                 setEnabledLexicons((current) =>
@@ -234,9 +241,13 @@ export function QualityWorkbench() {
 
       <section className="lexicon-row" aria-label="词库选择">
         {LEXICON_OPTIONS.map((option) => (
-          <label className="check-pill" key={option.id}>
+          <label
+            className={isBusy ? "check-pill disabled" : "check-pill"}
+            key={option.id}
+          >
             <input
               checked={enabledLexicons.includes(option.id)}
+              disabled={isBusy}
               onChange={() => toggleLexicon(option.id)}
               type="checkbox"
             />
@@ -259,7 +270,11 @@ export function QualityWorkbench() {
                 className={
                   isLanguageOpen ? "language-trigger open" : "language-trigger"
                 }
-                onClick={() => setIsLanguageOpen((value) => !value)}
+                disabled={isBusy}
+                onClick={() => {
+                  if (isBusy) return;
+                  setIsLanguageOpen((value) => !value);
+                }}
                 type="button"
               >
                 <span>
@@ -279,7 +294,9 @@ export function QualityWorkbench() {
                           : "language-option"
                       }
                       key={option.value}
+                      disabled={isBusy}
                       onClick={() => {
+                        if (isBusy) return;
                         setLanguagePreference(option.value);
                         setIsLanguageOpen(false);
                       }}
@@ -297,6 +314,7 @@ export function QualityWorkbench() {
 
           <textarea
             maxLength={1500}
+            disabled={isBusy}
             onChange={(event) => setText(event.target.value)}
             placeholder={EMPTY_TEXT}
             value={text}
@@ -309,7 +327,9 @@ export function QualityWorkbench() {
             <div className="actions">
               <button
                 className="secondary"
+                disabled={isBusy}
                 onClick={() => {
+                  if (isBusy) return;
                   setText("");
                   setCheckResult(null);
                   setRewriteResult(null);
@@ -319,12 +339,17 @@ export function QualityWorkbench() {
               >
                 全部清空
               </button>
-              <button className="secondary" onClick={saveDraft} type="button">
+              <button
+                className="secondary"
+                disabled={isBusy}
+                onClick={saveDraft}
+                type="button"
+              >
                 保存草稿
               </button>
               <button
                 className="primary"
-                disabled={!canCheck || isChecking}
+                disabled={!canCheck || isBusy}
                 onClick={handleCheck}
                 type="button"
               >
@@ -345,12 +370,30 @@ export function QualityWorkbench() {
             </div>
             <button
               className="primary"
-              disabled={!checkResult || isRewriting}
+              disabled={!checkResult || isBusy}
               onClick={handleRewrite}
               type="button"
             >
               {isRewriting ? "改写中..." : "一键改写"}
             </button>
+          </div>
+
+          <div className="result-footer">
+            <span>全文：{checkResult?.summary.totalChars ?? 0} 字</span>
+            <span>
+              违禁词：
+              <strong className="danger">
+                {checkResult?.summary.violationCount ?? 0}
+              </strong>
+              字
+            </span>
+            <span>
+              敏感词：
+              <strong className="warning">
+                {checkResult?.summary.sensitiveCount ?? 0}
+              </strong>
+              字
+            </span>
           </div>
 
           <div className="result-body">
@@ -384,23 +427,6 @@ export function QualityWorkbench() {
             </aside>
           </div>
 
-          <div className="result-footer">
-            <span>全文：{checkResult?.summary.totalChars ?? 0} 字</span>
-            <span>
-              违禁词：
-              <strong className="danger">
-                {checkResult?.summary.violationCount ?? 0}
-              </strong>
-              字
-            </span>
-            <span>
-              敏感词：
-              <strong className="warning">
-                {checkResult?.summary.sensitiveCount ?? 0}
-              </strong>
-              字
-            </span>
-          </div>
         </div>
       </section>
 

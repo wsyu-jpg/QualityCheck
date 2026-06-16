@@ -12,6 +12,7 @@ const platforms = ["xiaohongshu", "wechat"] as const;
 const languages = ["simplified", "traditional"] as const;
 const riskLevels = ["low", "medium", "high"] as const;
 const severities = ["low", "medium", "high"] as const;
+const matchSources = ["local_lexicon", "ai_agent"] as const;
 
 export function parseCheckRequest(value: unknown): CheckRequest {
   const body = assertRecord(value, "请求体必须是 JSON 对象");
@@ -121,7 +122,7 @@ function assertMatches(value: unknown): MatchResult[] {
       ),
       start: assertNumber(match.start, `matches.${index}.start`),
       end: assertNumber(match.end, `matches.${index}.end`),
-      source: assertOneOf(match.source, ["local_lexicon"], `matches.${index}.source`)
+      source: assertOneOf(match.source, matchSources, `matches.${index}.source`)
     };
   });
 }

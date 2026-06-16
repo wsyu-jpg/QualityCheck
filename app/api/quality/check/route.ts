@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
-import { requestReviewAnnotations } from "@/lib/quality/ai";
+import { requestAiCheck, requestReviewAnnotations } from "@/lib/quality/ai";
 import { buildLocalCheckResult } from "@/lib/quality/lexicon";
 import { parseCheckRequest } from "@/lib/quality/validators";
 
 export async function POST(request: Request) {
   try {
     const input = parseCheckRequest(await request.json());
+
+    try {
+      return NextResponse.json(await requestAiCheck(input));
+    } catch {
+      // AI 检测失败时保留第一版可用性，回落到本地词库检测与批注。
+    }
+
     const localResult = buildLocalCheckResult(
       input.text,
       input.platform,

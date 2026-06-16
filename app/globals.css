@@ -186,6 +186,11 @@ button:disabled {
   background: var(--primary-soft);
 }
 
+.check-pill.disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .check-pill input {
   width: 18px;
   height: 18px;
@@ -351,6 +356,12 @@ textarea {
 
 textarea::placeholder {
   color: #a3acba;
+}
+
+textarea:disabled {
+  cursor: wait;
+  background: #fbfdff;
+  color: var(--text-muted);
 }
 
 .panel-footer,
@@ -528,7 +539,8 @@ textarea::placeholder {
 }
 
 .result-footer {
-  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #fbfdff;
   justify-content: flex-end;
   color: var(--text);
   font-weight: 800;

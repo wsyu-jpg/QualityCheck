@@ -68,6 +68,60 @@ describe("AI JSON validators", () => {
     ).toThrow("severity");
   });
 
+  it("accepts ai_agent as a match source", () => {
+    const result = validateCheckResponse({
+      ok: true,
+      originalText: "保證有效",
+      summary: {
+        totalChars: 4,
+        violationCount: 2,
+        sensitiveCount: 0,
+        riskLevel: "high"
+      },
+      matches: [
+        {
+          id: "match_001",
+          term: "保證",
+          category: "general",
+          severity: "high",
+          start: 0,
+          end: 2,
+          source: "ai_agent"
+        }
+      ],
+      annotations: []
+    });
+
+    expect(result.matches[0]?.source).toBe("ai_agent");
+  });
+
+  it("rejects unknown match sources", () => {
+    expect(() =>
+      validateCheckResponse({
+        ok: true,
+        originalText: "保證有效",
+        summary: {
+          totalChars: 4,
+          violationCount: 2,
+          sensitiveCount: 0,
+          riskLevel: "high"
+        },
+        matches: [
+          {
+            id: "match_001",
+            term: "保證",
+            category: "general",
+            severity: "high",
+            start: 0,
+            end: 2,
+            source: "manual"
+          }
+        ],
+        annotations: []
+      })
+    ).toThrow("source");
+  });
+
   it("accepts the fixed rewrite response contract", () => {
     const result = validateRewriteResponse({
       ok: true,

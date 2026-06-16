@@ -19,7 +19,7 @@ export type MatchResult = {
   severity: Severity;
   start: number;
   end: number;
-  source: "local_lexicon";
+  source: "local_lexicon" | "ai_agent";
 };
 
 export type Annotation = {

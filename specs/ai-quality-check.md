@@ -3,14 +3,18 @@
 ## 最终版状态
 - 当前设计已确认作为第一版最终 UI：保留 imagegen 生成的 `QualityCheck AI` icon，使用简约后台工具风格。
 - 顶部品牌区、平台切换、词库选择、左右双栏工作台、自定义输出语言下拉、批注卡和优化稿区域均属于第一版范围。
+- 检测优先调用 `AI_AGENT_CHECK`，由 AI 直接返回风险批注与 `matchKeywords`；服务端按 `matchKeywords` 回查原文生成高亮 offset，AI 检测失败时回落本地词库。
 - 一键改写必须调用 `AI_AGENT_REWRITE`；未配置时只展示错误，不生成本地替换稿。
 - 本规格、`AGENTS.md` 与代码必须同步维护，后续调整 UI、AI 契约、词库或打包方式都需要更新文档。
 
 ## 产品流程
 - 用户选择平台：小红书或公众号。
 - 用户勾选词库并输入文案，最多 1500 字。
-- 点击“立即检测”后，服务端先执行本地词库检测；未配置 `AI_AGENT_REVIEW` 时，直接用本地词库中的 `note` 和 `alternatives` 生成批注建议。
-- 配置 `AI_AGENT_REVIEW` 后，才调用 AI 对批注原因、建议和替代表达做语义增强。
+- 点击“立即检测”后，服务端优先调用 `AI_AGENT_CHECK`，将原文直接放入 FastGPT `messages[0].content`。
+- `AI_AGENT_CHECK` 返回检测 JSON 后，服务端优先按 `matchKeywords` 在原文中定位并生成 `matches`，用于前端高亮与批注展示。
+- 未配置 `AI_AGENT_CHECK`、请求失败、返回非 JSON、字段非法或无法定位 `matchKeywords` 时，服务端回落本地词库检测。
+- 回落本地词库时，未配置 `AI_AGENT_REVIEW` 则直接用本地词库中的 `note` 和 `alternatives` 生成批注建议。
+- 回落本地词库且配置 `AI_AGENT_REVIEW` 后，才调用 AI 对批注原因、建议和替代表达做语义增强。
 - 右侧展示原文，高亮违禁词，并显示类似文档批注的建议卡片。
 - 用户点击“一键改写”后，才会在下方出现优化稿；服务端必须调用 `AI_AGENT_REWRITE` 输出改写结果，默认目标语言为简体。
 - 未配置 `AI_AGENT_REWRITE` 时，一键改写返回可读错误，不使用代码替换模拟改写。
@@ -24,6 +28,8 @@
 - 不展示“累计过滤文章篇数”等运营数字模块。
 - 桌面端采用左右双栏：左侧输入与操作，右侧原文高亮和批注建议。
 - 小屏改为上下布局，所有按钮允许换行，不允许文字重叠或溢出。
+- 点击“立即检测”或“一键改写”后，页面进入 loading 状态，检测/改写完成前禁用其他输入、清空、保存、平台切换、词库切换、语言切换和另一个主操作按钮。
+- 右侧“全文 / 违禁词 / 敏感词”统计栏固定展示在检测结果标题与“一键改写”按钮下方，作为结果面板的第二行信息。
 - 视觉 token：
   - 主背景：`#eef2f7`
   - 面板背景：`#ffffff`
@@ -43,21 +49,35 @@
 - 检测时始终合并 `general`、`sensitive` 和当前平台词库，再叠加用户勾选词库。
 - 每个命中保留 `start` 和 `end` offset，用于前端精确高亮。
 - 重叠命中只保留较长、较高风险的命中，避免同一区间重复标注。
-- 第一阶段“定位违禁词、高亮、统计、基础批注”不依赖 AI，可以只通过补充词库文件迭代。
-- 这种模式延迟更低、token 成本为 0，适合明确词库规则的质检场景。
+- 当前主检测链路优先依赖 AI，以提升繁体、近义表达和上下文风险识别能力。
+- 本地词库作为 fallback 保留，适合 AI 请求失败、未配置或需要低成本兜底的明确规则场景。
 - AI 的价值主要在解释更自然、给更贴近上下文的替代表达，以及处理没有命中固定词库但语义可能有风险的表达。
 
 ## AI Agent 职责
+- `AI_AGENT_CHECK`：
+  - 输入原文，当前 FastGPT workflow 已内置 prompt。
+  - 服务端请求 FastGPT `/api/v1/chat/completions`，`messages[0].content` 只放原文。
+  - 输出 JSON 放在 `choices[0].message.content`。
+  - 当前 workflow 返回批注数组，每项包含 `matchId`、`matchKeywords`、`title`、`reason`、`suggestion`、`alternatives`。
+  - `matchKeywords` 是违规原文，服务端用它回查原文并生成 `matches.start`、`matches.end`。
+  - `title` 用于展示高中低风险判断，不再用于定位高亮。
+  - 服务端生成的 AI 命中 `source` 使用 `ai_agent`。
+  - 如果 AI 返回完整 `CheckResponse`，服务端也兼容，并会校验 `originalText` 与 offset。
+  - AI 检测失败时回落本地词库。
 - `AI_AGENT_REVIEW`：
-  - 输入本地检测结果和平台。
+  - 输入本地 fallback 检测结果和平台。
   - 只输出 `ReviewAnnotationsResponse` JSON。
   - 只负责为每个命中项生成 `annotations`。
   - 不允许返回或改动 `matches`、`summary`、原文 offset。
   - 不需要返回“批注 1/2/3”，批注序号由前端按数组顺序加工显示。
-  - 未配置时，系统使用代码 fallback：`data/lexicons.json` 中每个词条的 `note` 作为 `reason`，`alternatives` 作为替代表达。
+  - 未配置时，本地 fallback 系统使用代码生成批注：`data/lexicons.json` 中每个词条的 `note` 作为 `reason`，`alternatives` 作为替代表达。
 - `AI_AGENT_REWRITE`：
   - 输入原文、matches、annotations、目标语言和改写目标。
   - 输出 `RewriteResponse` JSON。
+  - FastGPT 形式调用时，服务端将上述内容打包为 JSON 字符串放入 `messages[0].content`。
+  - 推荐 workflow 返回标准 `RewriteResponse` JSON。
+  - 若当前 workflow 返回 `{ "ok": true, "rewrittenText": "...", "changeSummary": "文本摘要", "remainingRisk": "无" }`，服务端会转换为前端需要的 `changeSummary` 数组和 `remainingRisk` 对象。
+  - 若当前 workflow 返回纯文本或 `{ "content": "优化稿" }`，服务端会将 content 作为 `rewrittenText` 展示，并用第一步批注生成保守 `changeSummary`。
   - 目标是在保留原意的前提下降低审核风险。
   - 必须整合原文、命中词和批注建议后输出完整优化稿。
   - `changeSummary` 必须由 AI 返回，用于展示相对原文的主要调整点；前端不猜测调整点。
@@ -114,10 +134,58 @@
 ```
 
 统计来源说明：
-- `summary.totalChars`、`summary.violationCount`、`summary.sensitiveCount`、`summary.riskLevel` 由服务端本地词库检测计算。
-- `matches` 由服务端本地词库检测生成，包含高亮所需 offset。
-- `annotations` 来自 `AI_AGENT_REVIEW`；未配置 AI 时使用本地 fallback。
+- 主链路中，`annotations` 来自 `AI_AGENT_CHECK` 的 JSON，`matches` 和 `summary` 由服务端基于已定位的 `matchKeywords` 生成。
+- 服务端会重新计算主链路 `summary`，以已校验的 `matches` 为准。
+- fallback 链路中，`summary.totalChars`、`summary.violationCount`、`summary.sensitiveCount`、`summary.riskLevel` 由服务端本地词库检测计算。
+- fallback 链路中，`matches` 由服务端本地词库检测生成，包含高亮所需 offset。
+- fallback 链路中，`annotations` 来自 `AI_AGENT_REVIEW`；未配置 AI 时使用本地 fallback。
 - 前端底部“全文 / 违禁词 / 敏感词”只读取 `summary`，不是直接读取 AI 批注结果。
+
+FastGPT 检测接口：`AI_AGENT_CHECK`
+
+请求：
+```json
+{
+  "chatId": "uuid",
+  "stream": false,
+  "detail": false,
+  "responseChatItemId": "uuid",
+  "variables": {
+    "platform": "xiaohongshu",
+    "languagePreference": "traditional",
+    "enabledLexicons": "general,sensitive,xiaohongshu"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "待检测原文"
+    }
+  ]
+}
+```
+
+响应中 `choices[0].message.content` 必须是检测 JSON 字符串。当前 workflow 返回批注数组：
+```json
+{
+  "id": "chatcmpl_xxx",
+  "model": "",
+  "usage": {
+    "prompt_tokens": 1,
+    "completion_tokens": 1,
+    "total_tokens": 1
+  },
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "[{\"matchId\":\"match_001\",\"matchKeywords\":\"保證最有效\",\"title\":\"高风险表达\",\"reason\":\"该词属于确定性效果承诺。\",\"suggestion\":\"建议弱化表达。\",\"alternatives\":[\"帮助提升\",\"有机会改善\"]}]"
+      },
+      "finish_reason": "stop",
+      "index": 0
+    }
+  ]
+}
+```
 
 质检批注 AI 返回：`AI_AGENT_REVIEW`
 
@@ -330,6 +398,7 @@ AI 必须只返回：
 
 ## 打包与部署
 - 构建配置：`next.config.mjs`，使用 `output: "standalone"`。
+- 生产包关闭 Next.js 图片优化：`images.unoptimized: true`，避免 Windows standalone 运行时额外依赖 `sharp`。
 - 本地开发：
 ```bash
 npm install
@@ -357,14 +426,21 @@ node server.js
 AI_AGENT_REVIEW_BASE_URL=
 AI_AGENT_REVIEW_API_KEY=
 AI_AGENT_REVIEW_MODEL=
+AI_AGENT_CHECK_BASE_URL=
+AI_AGENT_CHECK_API_KEY=
+AI_AGENT_CHECK_TIMEOUT_MS=
 AI_AGENT_REWRITE_BASE_URL=
 AI_AGENT_REWRITE_API_KEY=
-AI_AGENT_REWRITE_MODEL=
+AI_AGENT_REWRITE_MODEL= # FastGPT workflow 可不填；OpenAI-compatible 调用需配置
 AI_AGENT_TRADITIONAL_BASE_URL=
 AI_AGENT_TRADITIONAL_API_KEY=
 AI_AGENT_TRADITIONAL_MODEL=
 ```
 - 上线风险：
-  - 未配置 `AI_AGENT_REVIEW_*` 不影响检测和批注基础能力，会使用本地词库 fallback。
+  - 未配置或调用失败的 `AI_AGENT_CHECK_*` 不影响检测基础可用性，会使用本地词库 fallback。
+  - 未配置 `AI_AGENT_REVIEW_*` 不影响本地 fallback 批注基础能力，会使用本地词库 fallback。
   - 未配置 `AI_AGENT_REWRITE_*` 会导致一键改写返回错误，这是预期行为。
+  - FastGPT 改写 workflow 需要能从 `messages[0].content` 解析原文、第一步 AI 返回的 `matches` 与 `annotations`。
+  - 改写 workflow 最好返回标准 `RewriteResponse` JSON；也兼容 `{ "ok": true, "rewrittenText": "...", "changeSummary": "文本摘要", "remainingRisk": "无" }`。
+  - 纯文本或 `{ "content": "优化稿" }` 返回可用于测试，但剩余风险会被系统保守标记为 `medium`。
   - 如果部署平台不是 Vercel，需要确认 Node 版本满足 `package.json` 的 `engines`。
