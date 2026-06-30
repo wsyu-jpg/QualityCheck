@@ -411,6 +411,12 @@ textarea:disabled {
   background: var(--surface-soft);
 }
 
+.secondary.compact {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
 .count {
   color: var(--text-muted);
   font-weight: 700;
@@ -556,6 +562,21 @@ textarea:disabled {
   margin-top: 14px;
 }
 
+.rewrite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.copy-status {
+  margin: 12px 18px 0;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .rewritten-text {
   margin: 0;
   padding: 18px;
@@ -697,12 +718,23 @@ textarea:disabled {
   }
 
   .actions,
-  .result-footer {
+  .result-footer,
+  .rewrite-actions {
     justify-content: stretch;
   }
 
-  .actions button {
+  .actions button,
+  .rewrite-actions button {
     flex: 1 1 140px;
+  }
+
+  .rewrite-actions {
+    width: 100%;
+  }
+
+  .rewrite-actions .risk-badge {
+    flex: 1 1 160px;
+    text-align: center;
   }
 
   .app-header {

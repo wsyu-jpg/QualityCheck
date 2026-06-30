@@ -10,6 +10,7 @@ import type {
   Platform,
   RewriteResponse
 } from "@/lib/quality/types";
+import { requestQualityCheck, requestQualityRewrite } from "@/lib/quality/proxy-ai";
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   xiaohongshu: "小红书",
@@ -26,6 +27,7 @@ const LEXICON_OPTIONS = [
 ];
 
 const EMPTY_TEXT = "请输入需要检测的小红书或公众号原文";
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 const LANGUAGE_OPTIONS = [
   {
@@ -60,7 +62,7 @@ export function QualityWorkbench() {
   const [isChecking, setIsChecking] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
   const [error, setError] = useState("");
-  const [draftSavedAt, setDraftSavedAt] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isTraditionalNoticeOpen, setIsTraditionalNoticeOpen] = useState(false);
   const languagePickerRef = useRef<HTMLDivElement>(null);
@@ -107,26 +109,17 @@ export function QualityWorkbench() {
 
     setIsChecking(true);
     setError("");
+    setCopyStatus("");
     setRewriteResult(null);
     setIsLanguageOpen(false);
 
     try {
-      const response = await fetch("/api/quality/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          text,
-          enabledLexicons,
-          languagePreference
-        })
+      const data = await requestQualityCheck({
+        platform,
+        text,
+        enabledLexicons,
+        languagePreference
       });
-      const data = (await response.json()) as CheckResponse & {
-        error?: string;
-      };
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error ?? "检测失败，请稍后重试");
-      }
       setCheckResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "检测失败，请稍后重试");
@@ -140,27 +133,17 @@ export function QualityWorkbench() {
 
     setIsRewriting(true);
     setError("");
+    setCopyStatus("");
     setIsLanguageOpen(false);
 
     try {
-      const response = await fetch("/api/quality/rewrite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          originalText: checkResult.originalText,
-          matches: checkResult.matches,
-          annotations: checkResult.annotations,
-          targetLanguage: languagePreference,
-          rewriteGoal: "reduce_risk_keep_meaning"
-        })
-      });
-      const data = (await response.json()) as RewriteResponse & {
-        error?: string;
-      };
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error ?? "改写失败，请稍后重试");
-      }
+      const data = await requestQualityRewrite(
+        checkResult.originalText,
+        platform,
+        languagePreference,
+        checkResult.matches,
+        checkResult.annotations
+      );
       setRewriteResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "改写失败，请稍后重试");
@@ -178,13 +161,15 @@ export function QualityWorkbench() {
     );
   }
 
-  function saveDraft() {
-    if (isBusy) return;
-    window.localStorage.setItem(
-      "quality-check-draft",
-      JSON.stringify({ platform, text, enabledLexicons, languagePreference })
-    );
-    setDraftSavedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+  async function handleCopyRewrite() {
+    if (!rewriteResult || isBusy) return;
+
+    try {
+      await copyTextToClipboard(rewriteResult.rewrittenText);
+      setCopyStatus("已复制");
+    } catch {
+      setCopyStatus("复制失败，请手动选择文案复制");
+    }
   }
 
   return (
@@ -197,7 +182,7 @@ export function QualityWorkbench() {
               className="brand-icon"
               height="48"
               priority
-              src="/qualitycheck-icon.png"
+              src={`${PUBLIC_BASE_PATH}/qualitycheck-icon.png`}
               width="48"
             />
           </span>
@@ -339,19 +324,12 @@ export function QualityWorkbench() {
                   setText("");
                   setCheckResult(null);
                   setRewriteResult(null);
+                  setCopyStatus("");
                   setError("");
                 }}
                 type="button"
               >
                 全部清空
-              </button>
-              <button
-                className="secondary"
-                disabled={isBusy}
-                onClick={saveDraft}
-                type="button"
-              >
-                保存草稿
               </button>
               <button
                 className="primary"
@@ -363,9 +341,6 @@ export function QualityWorkbench() {
               </button>
             </div>
           </div>
-          {draftSavedAt ? (
-            <p className="subtle">草稿已保存于 {draftSavedAt}</p>
-          ) : null}
         </div>
 
         <div className="panel result-panel">
@@ -443,10 +418,21 @@ export function QualityWorkbench() {
               <p className="eyebrow">一键改写</p>
               <h2>优化稿</h2>
             </div>
-            <span className={`risk-badge ${rewriteResult.remainingRisk.riskLevel}`}>
-              剩余风险：{riskTitle(rewriteResult.remainingRisk.riskLevel)}
-            </span>
+            <div className="rewrite-actions">
+              <span className={`risk-badge ${rewriteResult.remainingRisk.riskLevel}`}>
+                剩余风险：{riskTitle(rewriteResult.remainingRisk.riskLevel)}
+              </span>
+              <button
+                className="secondary compact"
+                disabled={isBusy}
+                onClick={handleCopyRewrite}
+                type="button"
+              >
+                复制文案
+              </button>
+            </div>
           </div>
+          {copyStatus ? <p className="copy-status">{copyStatus}</p> : null}
           <p className="rewritten-text">{rewriteResult.rewrittenText}</p>
           <div className="change-list">
             {rewriteResult.changeSummary.map((change, index) => (
@@ -487,6 +473,44 @@ export function QualityWorkbench() {
       ) : null}
     </main>
   );
+}
+
+async function copyTextToClipboard(text: string) {
+  let clipboardError: unknown;
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (error) {
+      clipboardError = error;
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "0";
+  textarea.style.width = "1px";
+  textarea.style.height = "1px";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  document.body.appendChild(textarea);
+  textarea.focus({ preventScroll: true });
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  try {
+    if (!document.execCommand("copy")) {
+      throw clipboardError instanceof Error
+        ? clipboardError
+        : new Error("copy command failed");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function HighlightedText({

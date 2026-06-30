@@ -1,31 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestAiCheck, requestRewrite } from "@/lib/quality/ai";
+import {
+  requestQualityCheck,
+  requestQualityRewrite
+} from "@/lib/quality/proxy-ai";
 
-const originalEnv = { ...process.env };
 const originalFetch = global.fetch;
 
-describe("AI rewrite agent", () => {
+describe("AI proxy client", () => {
   afterEach(() => {
-    process.env = { ...originalEnv };
     global.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 
-  it("requires AI_AGENT_REWRITE configuration", async () => {
-    delete process.env.AI_AGENT_REWRITE_BASE_URL;
-    delete process.env.AI_AGENT_REWRITE_API_KEY;
-    delete process.env.AI_AGENT_REWRITE_MODEL;
-
-    await expect(
-      requestRewrite("我是第一名", "xiaohongshu", "simplified", [], [])
-    ).rejects.toThrow("AI_AGENT_REWRITE");
-  });
-
-  it("requests FastGPT check with raw text content and repairs offsets", async () => {
-    process.env.AI_AGENT_CHECK_BASE_URL = "https://aigpt.centanet.com";
-    process.env.AI_AGENT_CHECK_API_KEY = "test-token";
-    delete process.env.AI_AGENT_CHECK_MODEL;
-
+  it("requests type_c proxy with raw text content and repairs offsets", async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as {
         messages: Array<{ content: string }>;
@@ -78,7 +65,7 @@ describe("AI rewrite agent", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const result = await requestAiCheck({
+    const result = await requestQualityCheck({
       platform: "xiaohongshu",
       text: "這款產品保證有效",
       enabledLexicons: ["general"],
@@ -86,9 +73,13 @@ describe("AI rewrite agent", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://aigpt.centanet.com/api/v1/chat/completions",
+      "https://smartai.centanet.com/ReelEstate/api/ai-proxy",
       expect.objectContaining({
-        method: "POST"
+        method: "POST",
+        headers: expect.objectContaining({
+          "server-host": "aigpt.centanet.com",
+          "serve-type": "type_c"
+        })
       })
     );
     expect(result.matches[0]).toMatchObject({
@@ -101,10 +92,7 @@ describe("AI rewrite agent", () => {
     expect(result.annotations[0]?.matchId).toBe("match_001");
   });
 
-  it("accepts FastGPT annotation arrays and derives highlight matches", async () => {
-    process.env.AI_AGENT_CHECK_BASE_URL = "https://aigpt.centanet.com";
-    process.env.AI_AGENT_CHECK_API_KEY = "test-token";
-
+  it("accepts type_c annotation arrays and derives highlight matches", async () => {
     global.fetch = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -131,7 +119,7 @@ describe("AI rewrite agent", () => {
       )
     ) as unknown as typeof fetch;
 
-    const result = await requestAiCheck({
+    const result = await requestQualityCheck({
       platform: "xiaohongshu",
       text: "這款產品保證最有效，全網最低。",
       enabledLexicons: ["general"],
@@ -150,11 +138,26 @@ describe("AI rewrite agent", () => {
     });
   });
 
-  it("packages check results into FastGPT rewrite content", async () => {
-    process.env.AI_AGENT_REWRITE_BASE_URL = "https://aigpt.centanet.com";
-    process.env.AI_AGENT_REWRITE_API_KEY = "rewrite-token";
-    delete process.env.AI_AGENT_REWRITE_MODEL;
+  it("falls back to the local lexicon when type_c proxy fails", async () => {
+    global.fetch = vi.fn(async () => new Response("error", { status: 502 })) as
+      unknown as typeof fetch;
 
+    const result = await requestQualityCheck({
+      platform: "xiaohongshu",
+      text: "这款产品保证是全网最低，闭眼入。",
+      enabledLexicons: ["general", "xiaohongshu"],
+      languagePreference: "simplified"
+    });
+
+    expect(result.matches.map((match) => match.term)).toEqual([
+      "保证",
+      "全网最低",
+      "闭眼入"
+    ]);
+    expect(result.matches[0]?.source).toBe("local_lexicon");
+  });
+
+  it("packages check results into type_d rewrite content", async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as {
         messages: Array<{ content: string }>;
@@ -200,7 +203,7 @@ describe("AI rewrite agent", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const result = await requestRewrite(
+    const result = await requestQualityRewrite(
       "這款產品保證最有效。",
       "xiaohongshu",
       "traditional",
@@ -227,17 +230,19 @@ describe("AI rewrite agent", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://aigpt.centanet.com/api/v1/chat/completions",
-      expect.objectContaining({ method: "POST" })
+      "https://smartai.centanet.com/ReelEstate/api/ai-proxy",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "server-host": "aigpt.centanet.com",
+          "serve-type": "type_d"
+        })
+      })
     );
     expect(result.rewrittenText).toContain("不錯體驗");
   });
 
-  it("accepts plain text FastGPT rewrite output", async () => {
-    process.env.AI_AGENT_REWRITE_BASE_URL = "https://aigpt.centanet.com";
-    process.env.AI_AGENT_REWRITE_API_KEY = "rewrite-token";
-    delete process.env.AI_AGENT_REWRITE_MODEL;
-
+  it("accepts type_d plain text rewrite output", async () => {
     global.fetch = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -255,7 +260,7 @@ describe("AI rewrite agent", () => {
       )
     ) as unknown as typeof fetch;
 
-    const result = await requestRewrite(
+    const result = await requestQualityRewrite(
       "這款產品保證最有效。",
       "xiaohongshu",
       "traditional",
@@ -286,11 +291,7 @@ describe("AI rewrite agent", () => {
     expect(result.remainingRisk.riskLevel).toBe("medium");
   });
 
-  it("accepts FastGPT rewrite JSON with content field", async () => {
-    process.env.AI_AGENT_REWRITE_BASE_URL = "https://aigpt.centanet.com";
-    process.env.AI_AGENT_REWRITE_API_KEY = "rewrite-token";
-    delete process.env.AI_AGENT_REWRITE_MODEL;
-
+  it("accepts type_d rewrite JSON with content field", async () => {
     global.fetch = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -310,7 +311,7 @@ describe("AI rewrite agent", () => {
       )
     ) as unknown as typeof fetch;
 
-    const result = await requestRewrite(
+    const result = await requestQualityRewrite(
       "這款產品保證最有效。",
       "xiaohongshu",
       "traditional",
@@ -340,11 +341,7 @@ describe("AI rewrite agent", () => {
     expect(result.changeSummary[0]?.before).toBe("保證最有效");
   });
 
-  it("accepts FastGPT rewrite JSON with string summary and risk", async () => {
-    process.env.AI_AGENT_REWRITE_BASE_URL = "https://aigpt.centanet.com";
-    process.env.AI_AGENT_REWRITE_API_KEY = "rewrite-token";
-    delete process.env.AI_AGENT_REWRITE_MODEL;
-
+  it("accepts type_d rewrite JSON with string summary and risk", async () => {
     global.fetch = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -368,7 +365,7 @@ describe("AI rewrite agent", () => {
       )
     ) as unknown as typeof fetch;
 
-    const result = await requestRewrite(
+    const result = await requestQualityRewrite(
       "這款產品保證最有效。",
       "xiaohongshu",
       "simplified",
