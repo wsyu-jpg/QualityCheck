@@ -130,8 +130,17 @@ function assertMatches(value: unknown): MatchResult[] {
 function assertAnnotations(value: unknown): Annotation[] {
   return assertArray(value, "annotations").map((item, index) => {
     const annotation = assertRecord(item, `annotations.${index}`);
+    const riskLevel =
+      annotation.riskLevel === undefined
+        ? undefined
+        : assertOneOf(
+            annotation.riskLevel,
+            riskLevels,
+            `annotations.${index}.riskLevel`
+          );
     return {
       matchId: assertString(annotation.matchId, `annotations.${index}.matchId`),
+      ...(riskLevel ? { riskLevel } : {}),
       title: assertString(annotation.title, `annotations.${index}.title`),
       reason: assertString(annotation.reason, `annotations.${index}.reason`),
       suggestion: assertString(

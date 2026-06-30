@@ -24,6 +24,7 @@ export type MatchResult = {
 
 export type Annotation = {
   matchId: string;
+  riskLevel?: RiskLevel;
   title: string;
   reason: string;
   suggestion: string;

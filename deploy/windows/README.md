@@ -14,25 +14,25 @@
 正式环境建议目录：
 
 ```text
-E:\jtaitool\2026\AIqualityCheck\dist
+E:\jtaitool\2026\AIqualityCheck
 ```
 
 正式访问地址：
 
 ```text
-https://smartai.centanet.com/2026/AIqualityCheck/dist/
+https://smartai.centanet.com/2026/AIqualityCheck/
 ```
 
 未来测试环境建议目录：
 
 ```text
-E:\jtaitool\2026\AIqualityCheck-test\dist
+E:\jtaitool\2026\AIqualityCheck-test
 ```
 
 测试访问地址：
 
 ```text
-https://smartai.centanet.com/2026/AIqualityCheck-test/dist/
+https://smartai.centanet.com/2026/AIqualityCheck-test/
 ```
 
 ## 3. 本地构建
@@ -40,16 +40,16 @@ https://smartai.centanet.com/2026/AIqualityCheck-test/dist/
 正式环境构建：
 
 ```bash
-NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck/dist npm run build
+NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck npm run build
 ```
 
 测试环境构建：
 
 ```bash
-NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck-test/dist npm run build
+NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck-test npm run build
 ```
 
-Next.js 会生成 `out/` 静态目录。打包时将 `out/` 内容复制到 `release/AIqualityCheck/dist/`，再压缩成：
+Next.js 会生成 `out/` 静态目录。打包时将 `out/` 内容复制到 `release/AIqualityCheck/` 根目录，再压缩成：
 
 ```text
 release/AIqualityCheck.zip
@@ -61,23 +61,22 @@ release/AIqualityCheck.zip
 2. 解压到：
 
 ```text
-E:\jtaitool\2026\AIqualityCheck
+E:\jtaitool\2026
 ```
 
 3. 确认文件结构类似：
 
 ```text
 E:\jtaitool\2026\AIqualityCheck
-  └─ dist
-      ├─ index.html
-      ├─ _next
-      └─ qualitycheck-icon.png
+  ├─ index.html
+  ├─ _next
+  └─ qualitycheck-icon.png
 ```
 
 4. 浏览器访问：
 
 ```text
-https://smartai.centanet.com/2026/AIqualityCheck/dist/
+https://smartai.centanet.com/2026/AIqualityCheck/
 ```
 
 ## 5. 验证项目
@@ -98,8 +97,10 @@ https://smartai.centanet.com/2026/AIqualityCheck/dist/
 正式环境必须使用：
 
 ```bash
-NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck/dist
+NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck
 ```
+
+如果 Network 里 `_next/...` 请求路径仍带 `/dist/`，说明使用了旧包或旧构建参数，需要重新按上述命令构建并上传。
 
 ### AI 检测或改写失败
 
@@ -108,7 +109,7 @@ NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck/dist
 - 请求地址是否为 `https://smartai.centanet.com/ReelEstate/api/ai-proxy`
 - 质检请求 header 是否包含 `serve-type: type_c`
 - 改写请求 header 是否包含 `serve-type: type_d`
-- header 是否包含 `server-host: aigpt.centanet.com`
+- header 是否包含 `serve-host: aigpt.centanet.com`
 - 是否存在 CORS 或代理错误
 
 ### 只有质检 fallback 可用，改写不可用

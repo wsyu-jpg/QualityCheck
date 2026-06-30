@@ -70,7 +70,7 @@ async function callAiProxyJson(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "server-host": AI_PROXY_SERVER_HOST,
+      "serve-host": AI_PROXY_SERVER_HOST,
       "serve-type": serveType
     },
     body: JSON.stringify({
@@ -102,7 +102,7 @@ async function callAiProxyJson(
 }
 
 function createUUID() {
-  if (crypto.randomUUID) return crypto.randomUUID();
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
     const value = Math.floor(Math.random() * 16);
     const next = char === "x" ? value : (value & 0x3) | 0x8;
@@ -312,19 +312,23 @@ function normalizeFastGptAnnotationList(
     if (start === -1) return;
 
     const id = `match_${String(matches.length + 1).padStart(3, "0")}`;
+    const severity = normalizeAnnotationRiskLevel(record);
     matches.push({
       id,
       term,
       category: "sensitive",
-      severity: "high",
+      severity,
       start,
       end: start + term.length,
       source: "ai_agent"
     });
     annotations.push({
       matchId: id,
+      riskLevel: severity,
       title:
-        typeof record.title === "string" ? record.title : "高风险表达",
+        typeof record.title === "string"
+          ? record.title
+          : defaultRiskTitle(severity),
       reason:
         typeof record.reason === "string"
           ? record.reason
@@ -358,6 +362,32 @@ function normalizeFastGptAnnotationList(
       validMatchIds.has(annotation.matchId)
     )
   };
+}
+
+function normalizeAnnotationRiskLevel(record: Record<string, unknown>) {
+  if (
+    record.riskLevel === "high" ||
+    record.riskLevel === "medium" ||
+    record.riskLevel === "low"
+  ) {
+    return record.riskLevel;
+  }
+
+  if (typeof record.title === "string") {
+    if (record.title.includes("高")) return "high";
+    if (record.title.includes("中")) return "medium";
+    if (record.title.includes("低")) return "low";
+  }
+
+  return "high";
+}
+
+function defaultRiskTitle(severity: MatchResult["severity"]) {
+  return {
+    high: "高风险表达",
+    medium: "中风险表达",
+    low: "低风险表达"
+  }[severity];
 }
 
 function repairMatchOffset(match: MatchResult, text: string) {

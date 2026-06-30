@@ -2,10 +2,12 @@
 
 小红书与公众号文案 AI 质检工作台。当前版本面向内地通用简体发布场景，支持 AI 风险检测、原文高亮、批注建议、一键改写和复制优化稿。
 
+顶部品牌展示为 `QualityCheck / AI 敏感詞檢測`。
+
 ## 当前能力
 
 - 平台选择：小红书、公众号。
-- 词库选择：通用词库、敏感词、小红书词、公众号词、广告词、医疗词。
+- 词库设置：默认收起，仅显示已启用数量；用户点击后展开通用词库、敏感词、小红书词、公众号词、广告词、医疗词。
 - AI 质检：前端直接请求公司统一 AI 代理，使用 `serve-type: type_c`。
 - 本地 fallback：AI 质检失败时回落 `data/lexicons.json` 本地词库。
 - 一键改写：前端直接请求公司统一 AI 代理，使用 `serve-type: type_d`。
@@ -94,7 +96,7 @@ https://smartai.centanet.com/ReelEstate/api/ai-proxy
 
 ```http
 Content-Type: application/json
-server-host: aigpt.centanet.com
+serve-host: aigpt.centanet.com
 ```
 
 功能类型：
@@ -137,11 +139,14 @@ server-host: aigpt.centanet.com
 
 响应从 `choices[0].message.content` 解析 JSON。当前兼容：
 
-- 质检批注数组，包含 `matchKeywords`、`title`、`reason`、`suggestion`、`alternatives`。
+- 质检批注数组，包含 `matchKeywords`、`riskLevel`、`title`、`reason`、`suggestion`、`alternatives`。
+- 质检无命中空数组：`[]`。
 - 完整 `CheckResponse`。
 - 标准 `RewriteResponse`。
 - `{ ok, rewrittenText, changeSummary: string, remainingRisk: string }`。
 - 纯文本或 `{ content }` 改写结果。
+
+质检批注数组中，`riskLevel` 固定使用 `high`、`medium`、`low`，前端会据此生成高/中/低风险高亮与批注样式；旧 workflow 未返回 `riskLevel` 时，会从 `title` 兜底识别风险等级。
 
 ## 验证
 
@@ -156,6 +161,7 @@ npm run build
 
 - smartai AI 代理请求 headers 与 body
 - 质检 JSON / 批注数组兼容
+- 质检 `riskLevel` 高/中/低风险解析与空数组无命中
 - 改写 JSON / 纯文本 / content 字段兼容
 - 本地词库 fallback 和 offset
 - 请求与响应 validator
@@ -167,16 +173,16 @@ npm run build
 正式环境建议使用路径：
 
 ```text
-https://smartai.centanet.com/2026/AIqualityCheck/dist/
+https://smartai.centanet.com/2026/AIqualityCheck/
 ```
 
 构建正式环境：
 
 ```bash
-NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck/dist npm run build
+NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck npm run build
 ```
 
-Next.js 会输出 `out/`，打包时将 `out/` 内容复制到发布目录 `dist/`，并压缩为：
+Next.js 会输出 `out/`，打包时将 `out/` 内容复制到发布目录根目录，并压缩为：
 
 ```text
 release/AIqualityCheck.zip
@@ -185,27 +191,27 @@ release/AIqualityCheck.zip
 服务器目录建议：
 
 ```text
-E:\jtaitool\2026\AIqualityCheck\dist
+E:\jtaitool\2026\AIqualityCheck
 ```
 
 发布步骤：
 
 1. 上传 `AIqualityCheck.zip` 到服务器。
-2. 解压到 `E:\jtaitool\2026\AIqualityCheck`。
-3. 确认存在 `E:\jtaitool\2026\AIqualityCheck\dist\index.html`。
-4. 访问 `https://smartai.centanet.com/2026/AIqualityCheck/dist/`。
+2. 解压到 `E:\jtaitool\2026`。
+3. 确认存在 `E:\jtaitool\2026\AIqualityCheck\index.html`。
+4. 访问 `https://smartai.centanet.com/2026/AIqualityCheck/`。
 5. 验证质检、改写、复制文案。
 
 测试环境可使用独立路径重新构建：
 
 ```bash
-NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck-test/dist npm run build
+NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck-test npm run build
 ```
 
 对应访问：
 
 ```text
-https://smartai.centanet.com/2026/AIqualityCheck-test/dist/
+https://smartai.centanet.com/2026/AIqualityCheck-test/
 ```
 
 ## Git 管理

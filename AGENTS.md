@@ -18,19 +18,22 @@
 ## AI 代理配置
 - 统一请求地址：`https://smartai.centanet.com/ReelEstate/api/ai-proxy`。
 - 统一 header：
-  - `server-host: aigpt.centanet.com`
+  - `serve-host: aigpt.centanet.com`
   - `serve-type: type_c`：AI 质检
   - `serve-type: type_d`：AI 重写
 - 前端不保存、不提交 FastGPT token。
 - 质检请求保持 FastGPT chat/completions 形式，`messages[0].content` 只放原文。
 - 改写请求保持 FastGPT chat/completions 形式，`messages[0].content` 打包原文、`matches`、`annotations`、目标语言和改写目标。
 - 响应从 `choices[0].message.content` 解析。
-- 如果后续代理 URL、`server-host` 或 `serve-type` 调整，必须同步更新代码、README 和规格文档。
+- 如果后续代理 URL、`serve-host` 或 `serve-type` 调整，必须同步更新代码、README 和规格文档。
 
 ## JSON 契约
-- AI 质检可返回完整 `CheckResponse`，或返回包含 `matchKeywords` 的批注数组。
+- AI 质检可返回完整 `CheckResponse`，或返回包含 `matchKeywords`、`riskLevel`、`title`、`reason`、`suggestion`、`alternatives` 的批注数组。
+- AI 质检批注数组无命中时必须返回 `[]`，不要返回纯文本提示。
+- `riskLevel` 使用固定枚举 `high`、`medium`、`low`，前端据此生成高/中/低风险高亮与批注样式。
 - 前端必须校验 AI JSON，不能把未校验的 AI 输出直接展示。
 - 前端必须用 `matchKeywords` 回查原文生成高亮 offset。
+- 旧 workflow 未返回 `riskLevel` 时，前端可从 `title` 兜底识别高/中/低风险。
 - AI 重写推荐返回标准 `RewriteResponse`。
 - AI 重写同时兼容 `{ ok, rewrittenText, changeSummary: string, remainingRisk: string }`、纯文本和 `{ content }`，但正式 workflow 应优先返回标准结构。
 - 批注序号由前端根据 `annotations` 数组顺序生成，AI 不需要返回“批注 1/2/3”。
@@ -39,6 +42,7 @@
 - UI 风格保持简约后台工具风格：白底、浅灰分区、蓝色主按钮、红/橙风险提示、8px 圆角。
 - 不新增营销落地页，首屏必须是可操作工作台。
 - 检测或改写 loading 期间必须禁用输入、清空、平台切换、词库切换、语言切换和另一个主操作按钮，避免请求期间状态被改乱。
+- 词库设置默认折叠，仅展示“词库设置”和已启用数量；用户明确点击后才展开具体词库选项。
 - 当前版本不展示“保存草稿”按钮；一键改写成功后展示“复制文案”按钮，复制内容仅为最终优化稿正文。
 - 右侧统计栏固定展示在检测结果标题与“一键改写”按钮下方，不放在结果面板底部。
 - 修改检测逻辑或 JSON 校验时必须补充单元测试。
@@ -48,8 +52,8 @@
 - 项目使用 Next.js static export，构建配置在 `next.config.mjs`。
 - 生产包关闭 Next.js 图片优化 `images.unoptimized: true`。
 - 正式打包前必须运行 `npm test` 和 `npm run build`。
-- 正式发布路径建议为 `https://smartai.centanet.com/2026/AIqualityCheck/dist/`。
-- 正式构建使用 `NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck/dist npm run build`。
-- 交付压缩包命名为 `AIqualityCheck.zip`，包内应包含 `dist/` 静态目录和发布说明。
+- 正式发布路径建议为 `https://smartai.centanet.com/2026/AIqualityCheck/`。
+- 正式构建使用 `NEXT_PUBLIC_BASE_PATH=/2026/AIqualityCheck npm run build`。
+- 交付压缩包命名为 `AIqualityCheck.zip`，包内静态文件应直接位于 `AIqualityCheck/` 根目录。
 - Windows 服务器发布为静态目录上传，不需要 Node 服务、PM2、端口或 `.env.cmd`。
 - `release/` 是本地打包产物目录，必须保持 git 忽略，不提交 zip、tar.gz 或临时打包目录。

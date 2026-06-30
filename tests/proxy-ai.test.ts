@@ -77,7 +77,7 @@ describe("AI proxy client", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          "server-host": "aigpt.centanet.com",
+          "serve-host": "aigpt.centanet.com",
           "serve-type": "type_c"
         })
       })
@@ -104,10 +104,11 @@ describe("AI proxy client", () => {
                   {
                     matchId: "match_001",
                     matchKeywords: "保證最有效",
-                    title: "高风险表达",
-                    reason: "包含绝对化效果承诺。",
-                    suggestion: "建议改为体验型描述。",
-                    alternatives: ["親測不錯", "效果很驚喜"]
+                    riskLevel: "medium",
+                    title: "中風險表達",
+                    reason: "包含較強的效果承諾。",
+                    suggestion: "建議改為體驗型描述。",
+                    alternatives: ["亲测不错", "体验较好"]
                   }
                 ])
               },
@@ -128,13 +129,92 @@ describe("AI proxy client", () => {
 
     expect(result.matches[0]).toMatchObject({
       term: "保證最有效",
+      severity: "medium",
       start: 4,
       end: 9,
       source: "ai_agent"
     });
     expect(result.annotations[0]).toMatchObject({
       matchId: "match_001",
-      title: "高风险表达"
+      riskLevel: "medium",
+      title: "中風險表達"
+    });
+  });
+
+  it("infers annotation risk from title when riskLevel is missing", async () => {
+    global.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: JSON.stringify([
+                  {
+                    matchId: "match_001",
+                    matchKeywords: "值得入手",
+                    title: "低風險表達",
+                    reason: "屬於輕度主觀推薦。",
+                    suggestion: "建議改為更客觀的描述。",
+                    alternatives: ["可以关注", "值得了解"]
+                  }
+                ])
+              },
+              finish_reason: "stop",
+              index: 0
+            }
+          ]
+        })
+      )
+    ) as unknown as typeof fetch;
+
+    const result = await requestQualityCheck({
+      platform: "xiaohongshu",
+      text: "這款產品值得入手。",
+      enabledLexicons: ["general"],
+      languagePreference: "traditional"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      term: "值得入手",
+      severity: "low",
+      source: "ai_agent"
+    });
+    expect(result.summary.riskLevel).toBe("low");
+  });
+
+  it("accepts empty type_c annotation arrays as no findings", async () => {
+    global.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: "[]"
+              },
+              finish_reason: "stop",
+              index: 0
+            }
+          ]
+        })
+      )
+    ) as unknown as typeof fetch;
+
+    const result = await requestQualityCheck({
+      platform: "wechat",
+      text: "這是一段普通文案。",
+      enabledLexicons: ["general"],
+      languagePreference: "traditional"
+    });
+
+    expect(result.matches).toEqual([]);
+    expect(result.annotations).toEqual([]);
+    expect(result.summary).toEqual({
+      totalChars: 9,
+      violationCount: 0,
+      sensitiveCount: 0,
+      riskLevel: "low"
     });
   });
 
@@ -234,7 +314,7 @@ describe("AI proxy client", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          "server-host": "aigpt.centanet.com",
+          "serve-host": "aigpt.centanet.com",
           "serve-type": "type_d"
         })
       })

@@ -56,7 +56,7 @@ button:disabled {
 
 .app-header,
 .toolbar,
-.lexicon-row,
+.lexicon-panel,
 .workspace-grid,
 .rewrite-panel {
   max-width: 1480px;
@@ -121,6 +121,7 @@ button:disabled {
   color: var(--primary);
   font-size: 16px;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .toolbar {
@@ -157,16 +158,72 @@ button:disabled {
   box-shadow: 0 8px 18px rgba(36, 136, 255, 0.2);
 }
 
-.lexicon-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.lexicon-panel {
   margin-bottom: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.76);
-  padding: 10px;
   box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.lexicon-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: #ffffff;
+  color: var(--text);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.lexicon-toggle:hover:not(:disabled),
+.lexicon-toggle.open {
+  background: var(--surface-soft);
+}
+
+.lexicon-toggle span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.lexicon-toggle strong {
+  font-weight: 900;
+}
+
+.lexicon-toggle small {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lexicon-toggle i,
+.language-trigger i {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.18s ease;
+}
+
+.lexicon-toggle.open i,
+.language-trigger.open i {
+  transform: rotate(225deg);
+}
+
+.lexicon-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 10px;
 }
 
 .check-pill {
@@ -285,19 +342,6 @@ h2 {
 
 .language-trigger strong {
   font-size: 14px;
-}
-
-.language-trigger i {
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid #526174;
-  border-bottom: 2px solid #526174;
-  transform: translateY(-2px) rotate(45deg);
-  transition: transform 0.18s ease;
-}
-
-.language-trigger.open i {
-  transform: translateY(2px) rotate(225deg);
 }
 
 .language-menu {
@@ -473,6 +517,18 @@ textarea:disabled {
   box-shadow: 0 6px 14px rgba(22, 33, 54, 0.05);
 }
 
+.annotation-card.high {
+  border-left-color: var(--danger);
+}
+
+.annotation-card.medium {
+  border-left-color: var(--warning);
+}
+
+.annotation-card.low {
+  border-left-color: var(--primary);
+}
+
 .annotation-card h3 {
   margin-bottom: 8px;
   font-size: 15px;
@@ -496,6 +552,14 @@ textarea:disabled {
 
 .annotation-meta strong {
   color: var(--danger);
+}
+
+.annotation-card.medium .annotation-meta strong {
+  color: var(--warning);
+}
+
+.annotation-card.low .annotation-meta strong {
+  color: var(--primary);
 }
 
 .alternatives {

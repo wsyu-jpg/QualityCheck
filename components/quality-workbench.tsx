@@ -64,6 +64,7 @@ export function QualityWorkbench() {
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+  const [isLexiconOpen, setIsLexiconOpen] = useState(false);
   const [isTraditionalNoticeOpen, setIsTraditionalNoticeOpen] = useState(false);
   const languagePickerRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +72,7 @@ export function QualityWorkbench() {
   const canCheck = selectedText.length > 0 && selectedText.length <= 1500;
   const isBusy = isChecking || isRewriting;
   const activeAnnotations = checkResult?.annotations ?? [];
+  const enabledLexiconCount = enabledLexicons.length;
   const selectedLanguageOption = LANGUAGE_OPTIONS.find(
     (option) => option.value === languagePreference
   ) ?? LANGUAGE_OPTIONS[0];
@@ -186,9 +188,9 @@ export function QualityWorkbench() {
               width="48"
             />
           </span>
-          <div className="brand-wordmark" aria-label="QualityCheck AI">
+          <div className="brand-wordmark" aria-label="QualityCheck AI 敏感詞檢測">
             <strong>QualityCheck</strong>
-            <span>AI</span>
+            <span>AI 敏感詞檢測</span>
           </div>
         </div>
       </header>
@@ -225,21 +227,41 @@ export function QualityWorkbench() {
         </div>
       </section>
 
-      <section className="lexicon-row" aria-label="词库选择">
-        {LEXICON_OPTIONS.map((option) => (
-          <label
-            className={isBusy ? "check-pill disabled" : "check-pill"}
-            key={option.id}
-          >
-            <input
-              checked={enabledLexicons.includes(option.id)}
-              disabled={isBusy}
-              onChange={() => toggleLexicon(option.id)}
-              type="checkbox"
-            />
-            <span>{option.label}</span>
-          </label>
-        ))}
+      <section className="lexicon-panel" aria-label="词库选择">
+        <button
+          aria-expanded={isLexiconOpen}
+          className={isLexiconOpen ? "lexicon-toggle open" : "lexicon-toggle"}
+          disabled={isBusy}
+          onClick={() => {
+            if (isBusy) return;
+            setIsLexiconOpen((value) => !value);
+          }}
+          type="button"
+        >
+          <span>
+            <strong>词库设置</strong>
+            <small>已启用 {enabledLexiconCount} 项</small>
+          </span>
+          <i aria-hidden="true" />
+        </button>
+        {isLexiconOpen ? (
+          <div className="lexicon-options">
+            {LEXICON_OPTIONS.map((option) => (
+              <label
+                className={isBusy ? "check-pill disabled" : "check-pill"}
+                key={option.id}
+              >
+                <input
+                  checked={enabledLexicons.includes(option.id)}
+                  disabled={isBusy}
+                  onChange={() => toggleLexicon(option.id)}
+                  type="checkbox"
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="workspace-grid">
@@ -555,8 +577,9 @@ function AnnotationCard({
   index: number;
   match?: MatchResult;
 }) {
+  const severity = match?.severity ?? annotation.riskLevel ?? "medium";
   return (
-    <article className="annotation-card">
+    <article className={`annotation-card ${severity}`}>
       <div className="annotation-meta">
         <span>批注 {index + 1}</span>
         {match ? <strong>{match.term}</strong> : null}
